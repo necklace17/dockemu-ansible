@@ -1,6 +1,6 @@
 ---
-- name: Install Dockemu dependencies and required packages
-  hosts: dockemu
+- name: Install localhost dependencies and required packages
+  hosts: localhost
   become: true
   tags:
       - install
@@ -8,23 +8,23 @@
       - installation
 
 - name: Prepare Docker containers and set ns-3 configuration
-  hosts: dockemu
+  hosts: localhost
   become: true
   tags:
       - prepare
   roles:
       - preparation
      
-- name: Execute Dockemu simulation
-  hosts: dockemu
+- name: Execute localhost simulation
+  hosts: localhost
   become: true
   tags:
      - execute
   roles:
       - execution
 
-- name: Cleanup Dockemu simulation
-  hosts: dockemu
+- name: Cleanup localhost simulation
+  hosts: localhost
   become: true
   tags:
      - cleanup
