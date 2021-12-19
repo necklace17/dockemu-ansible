@@ -1,42 +1,70 @@
 ---
- # COPY Dockerfiles AND BUILD IMAGES
-     - name: Copy Dockerfile for client nodes  
-       copy: "src=files/client/Dockerfile dest={{ deployFolder }}/client/"
-     
-     - name: Copy Dockerfile for server nodes
-       copy: "src=files/server/Dockerfile dest={{ deployFolder }}/server/" 
+# COPY Dockerfiles AND BUILD IMAGES
+- name: Copy Dockerfile for client nodes
+  copy: "src=files/client/Dockerfile dest={{ deployFolder }}/client/"
 
-     - name: Build client image and leave it in internal repository
-       docker_image:
-           path: "{{ deployFolder }}/client"
-           name: "{{ baseContainerName }}_client"
-           rm: yes
+- name: Copy wrapperfile for client nodes
+  copy: "src=files/client/wrapper.sh dest={{ deployFolder }}/client/"
 
-     - name: Build server image and leave it in internal repository    
-       docker_image:
-           path: "{{ deployFolder }}/server"
-           name: "{{ baseContainerName }}_server"
-           rm: yes
+- name: Copy python script for client nodes
+  copy: "src=files/client/client_greeter.py dest={{ deployFolder }}/client/"
 
-     #CREATE LOG FOLDERS
-     - name: Creates log folders for each client node
-       file:
-            path: "{{ deployFolder }}/{{ experimentName }}/logs/{{ baseContainerName }}-{{ item }}"
-            state: directory
-       with_sequence: "start=0 count={{ numberOfClientNodes }}"
+- name: Copy helloworld_pb2.py script for client nodes
+  copy: "src=files/client/helloworld_pb2.py dest={{ deployFolder }}/client/"
 
-     - name: Creates log folders for each server node
-       file:
-           path: "{{ deployFolder }}/{{ experimentName }}/logs/{{ baseContainerName }}-server-{{ item }}"
-           state: directory
-       with_sequence: "start=0 count={{ numberOfServerNodes }}"
-    
-    
-       # NS3 CONF AND COMPILATION
-     - name: Copy NS3 configuration file
-       copy: "src=files/{{ ns3NetworkScript }}.cc dest={{ deployFolder }}/{{ nsVersion }}/{{ nsCodeFolder }}/scratch"
+- name: Copy helloworld_pb2_grpc.py script for client nodes
+  copy: "src=files/client/helloworld_pb2_grpc.py dest={{ deployFolder }}/client/"
 
-     - name: execute ./waf to build new ns3 configuration file
-       command: ./waf  
-       args:
-           chdir: "{{ deployFolder }}/{{ nsVersion }}/{{ nsCodeFolder }}"
+- name: Copy Dockerfile for server nodes
+  copy: "src=files/server/Dockerfile dest={{ deployFolder }}/server/"
+
+- name: Copy wrapperfile for server nodes
+  copy: "src=files/server/wrapper.sh dest={{ deployFolder }}/server/"
+
+- name: Copy python script for server nodes
+  copy: "src=files/server/server_greeter.py dest={{ deployFolder }}/server/"
+
+- name: Copy helloworld_pb2.py script for client nodes
+  copy: "src=files/server/helloworld_pb2.py dest={{ deployFolder }}/server/"
+
+- name: Copy helloworld_pb2_grpc.py script for client nodes
+  copy: "src=files/server/helloworld_pb2_grpc.py dest={{ deployFolder }}/server/"
+
+- name: Build client image and leave it in internal repository
+  docker_image:
+    build:
+      path: "{{ deployFolder }}/client"
+      pull: yes
+    name: "{{ baseContainerName }}_client"
+    source: build
+
+- name: Build server image and leave it in internal repository
+  docker_image:
+    build:
+      path: "{{ deployFolder }}/server"
+      pull: yes
+    name: "{{ baseContainerName }}_server"
+    source: build
+
+#CREATE LOG FOLDERS
+- name: Creates log folders for each client node
+  file:
+    path: "{{ deployFolder }}/{{ experimentName }}/logs/{{ baseContainerName }}-{{ item }}"
+    state: directory
+  with_sequence: "start=0 count={{ numberOfClientNodes }}"
+
+- name: Creates log folders for each server node
+  file:
+    path: "{{ deployFolder }}/{{ experimentName }}/logs/{{ baseContainerName }}-server-{{ item }}"
+    state: directory
+  with_sequence: "start=0 count={{ numberOfServerNodes }}"
+
+
+  # NS3 CONF AND COMPILATION
+- name: Copy NS3 configuration file
+  copy: "src=files/{{ ns3NetworkScript }}.cc dest={{ deployFolder }}/{{ nsVersion }}/{{ nsCodeFolder }}/scratch"
+
+- name: execute ./waf to build new ns3 configuration file
+  command: ./waf
+  args:
+    chdir: "{{ deployFolder }}/{{ nsVersion }}/{{ nsCodeFolder }}"

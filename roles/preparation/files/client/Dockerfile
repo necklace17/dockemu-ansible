@@ -1,22 +1,26 @@
 FROM python:3.8
+ENV GRPC_VERBOSITY=debug
 # wget
 RUN apt-get update && apt-get install iproute2 iputils-ping iptables -y
 
 COPY client_greeter.py /client_greeter.py
-COPY ../helloworld_pb2.py /helloworld_pb2.py
-COPY ../helloworld_pb2_grpc.py /helloworld_pb2_grpc.py
+COPY helloworld_pb2.py /helloworld_pb2.py
+COPY helloworld_pb2_grpc.py /helloworld_pb2_grpc.py
+COPY wrapper.sh /wrapper.sh
 
 # update pip
 RUN pip3 install --upgrade pip
 # flwr tensorflow flwr torch torchvision
 RUN pip3 install websockets ifaddr grpcio grpcio-tools
 
+
 RUN chmod +x /client_greeter.py
 RUN chmod +x /helloworld_pb2.py
 RUN chmod +x /helloworld_pb2_grpc.py
+RUN chmod +x /wrapper.sh
 
-
-CMD ["python", "./client_greeter.py"]
+CMD /wrapper.sh > /var/log/dockemu/coap-server.log
+#CMD ["python", "./client_greeter.py"]
 
 #FROM alpine:latest as builder
 ##ENV libcoap_dir=libcoap
