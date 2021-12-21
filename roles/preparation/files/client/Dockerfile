@@ -19,6 +19,8 @@ RUN chmod +x /helloworld_pb2.py
 RUN chmod +x /helloworld_pb2_grpc.py
 RUN chmod +x /wrapper.sh
 
+CMD sleep 60 \
+    && /wrapper.sh > /var/log/dockemu/coap-client.log
 EXPOSE 50051
 
 #CMD /wrapper.sh > /var/log/dockemu/coap-server.log
