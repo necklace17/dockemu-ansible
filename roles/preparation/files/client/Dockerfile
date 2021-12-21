@@ -1,7 +1,7 @@
 FROM python:3.8
 ENV GRPC_VERBOSITY=debug
 # wget
-RUN apt-get update && apt-get install iproute2 iputils-ping iptables -y
+RUN apt-get update && apt-get install iproute2 iputils-ping iptables nmap vim -y
 
 COPY client_greeter.py /client_greeter.py
 COPY helloworld_pb2.py /helloworld_pb2.py
@@ -19,7 +19,9 @@ RUN chmod +x /helloworld_pb2.py
 RUN chmod +x /helloworld_pb2_grpc.py
 RUN chmod +x /wrapper.sh
 
-CMD /wrapper.sh > /var/log/dockemu/coap-server.log
+EXPOSE 50051
+
+#CMD /wrapper.sh > /var/log/dockemu/coap-server.log
 #CMD ["python", "./client_greeter.py"]
 
 #FROM alpine:latest as builder

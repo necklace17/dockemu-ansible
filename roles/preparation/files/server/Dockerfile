@@ -2,7 +2,7 @@ FROM python:3.8
 ENV GRPC_VERBOSITY=debug
 
 # wget
-RUN apt-get update && apt-get install iproute2 iputils-ping iptables -y
+RUN apt-get update && apt-get install iproute2 iputils-ping iptables nmap vim -y
 
 COPY server_greeter.py /server_greeter.py
 COPY helloworld_pb2.py /helloworld_pb2.py

@@ -11,9 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""The Python implementation of the GRPC helloworld.Greeter server."""
+"""The Python implementation of the GRPC helloworld.Greeter client."""
 
-from concurrent import futures
+from __future__ import print_function
+
 import logging
 
 import grpc
@@ -21,22 +22,16 @@ import helloworld_pb2
 import helloworld_pb2_grpc
 
 
-class Greeter(helloworld_pb2_grpc.GreeterServicer):
-
-    def SayHello(self, request, context):
-        return helloworld_pb2.HelloReply(message='Hello, %s!' % request.name)
-
-
-def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    helloworld_pb2_grpc.add_GreeterServicer_to_server(Greeter(), server)
-    server.add_insecure_port('10.12.240.1:50051')
-    server.start()
-    print("Server started")
-    server.wait_for_termination()
-
+def run():
+    # NOTE(gRPC Python Team): .close() is possible on a channel and should be
+    # used in circumstances in which the with statement does not fit the needs
+    # of the code.
+    with grpc.insecure_channel('server-0-dockemu:50051') as channel:
+        stub = helloworld_pb2_grpc.GreeterStub(channel)
+        response = stub.SayHello(helloworld_pb2.HelloRequest(name='you'))
+    print("Greeter client received: " + response.message)
 
 
 if __name__ == '__main__':
     logging.basicConfig()
-    serve()
+    run()
