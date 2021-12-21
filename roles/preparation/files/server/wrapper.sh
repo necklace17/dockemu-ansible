@@ -1,3 +1,3 @@
 echo "Lets start a server"
-python ./server_greeter.py
+python ./server.py
 echo "Finish"
