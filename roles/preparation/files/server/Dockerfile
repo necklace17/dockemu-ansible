@@ -16,5 +16,5 @@ RUN pip3 install flwr
 RUN chmod +x /server.py
 RUN chmod +x /wrapper.sh
 
-CMD /wrapper.sh > /var/log/dockemu/coap-server.log
+CMD /wrapper.sh >> /var/log/dockemu/coap-server.log
 EXPOSE 8080

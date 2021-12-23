@@ -16,5 +16,5 @@ RUN chmod +x /client.py
 RUN chmod +x /wrapper.sh
 
 CMD sleep 60 \
-    && /wrapper.sh > /var/log/dockemu/coap-client.log
+    && /wrapper.sh >> /var/log/dockemu/coap-client.log
 EXPOSE 8080
