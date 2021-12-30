@@ -9,3 +9,6 @@ tail -f ~/src/dockemu/coap-experiment/logs/coapcont-0/coap-client.log
 
 # Get server logs from file
 tail -f ~/src/dockemu/coap-experiment/logs/coapcont-server-0/coap-server.log
+
+# Remove container
+docker rm $(docker ps -aqf "name=coapcont-client-6")
