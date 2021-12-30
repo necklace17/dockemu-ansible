@@ -54,3 +54,6 @@ if __name__ == "__main__":
             wait_time = 5
             logging.info(f"Wait {wait_time} seconds")
             time.sleep(wait_time)
+    logging.info("Connection was not successful.")
+    logging.info("Pause script.")
+    time.sleep(3000)
