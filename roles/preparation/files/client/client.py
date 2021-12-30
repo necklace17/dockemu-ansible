@@ -1,5 +1,6 @@
 import os
 import pickle
+import time
 
 import flwr as fl
 import tensorflow as tf
@@ -11,7 +12,7 @@ root.setLevel(logging.DEBUG)
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 root.addHandler(handler)
 
@@ -43,4 +44,13 @@ if __name__ == "__main__":
             return loss, len(x_test), {"accuracy": accuracy}
 
     # Start Flower client
-    fl.client.start_numpy_client("server-0-dockemu:8080", client=CifarClient())
+    for i in range(0, 5):
+        try:
+            logging.info(f"Try connection attempt number {i}")
+            fl.client.start_numpy_client("server-0-dockemu:8080", client=CifarClient())
+            exit()
+        except Exception as error:
+            logging.error(f"with error: {error}")
+            wait_time = 5
+            logging.info(f"Wait {wait_time} seconds")
+            time.sleep(wait_time)
