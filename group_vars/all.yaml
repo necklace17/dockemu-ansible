@@ -1,28 +1,21 @@
----
-     # deployment setup    
-    nsVersion: ns-allinone-3.29
-    nsCodeFolder: ns-3.29
-    extension: .tar.bz2
-    deployFolder: /home/dockemu/src/dockemu
-    optimized: false
-
-      # experiment configuration
-      # base container name should not contain non-alfanumeric chars 
-      # max 8 chars 
-    baseContainerName: coapcont
-    experimentName: coap-experiment
-    logsDirectory: /var/dockemu/logs/
-    numberOfClientNodes: 5 
-    numberOfServerNodes: 1
-    serverNode: True
-    emulationTime: 3000
-    ns3NetworkScript: tap-csma-virtual-machine-client-server
-    #ns3NetworkScript: tap-wifi-virtual-machine-client-server
-    tracesEnabled: false
-    nodeSpeed: 5
-    nodePause: 1
-    ns3NetworkParameters: --ns3::CsmaChannel::DataRate=100000000 
- 
-      # emulation parameters  
-    startns3: False
-    ns3Jobs: 1
+baseContainerName: coapcont
+deployFolder: /home/dockemu/src/dockemu
+emulationTime: 3000
+experimentName: 2022-01-01-19-25-35_0_tap-csma-virtual-machine-client-server_3_34
+extension: .tar.bz2
+logsDirectory: /var/dockemu/logs/
+nodePause: 1
+nodeSpeed: 5
+ns3Jobs: 1
+ns3NetworkParameters: --ns3::CsmaChannel::DataRate=100000000
+ns3NetworkScript: tap-csma-virtual-machine-client-server
+nsCodeFolder: ns-3.29
+nsVersion: ns-allinone-3.29
+numberOfClientNodes: 3
+numberOfRounds: 3
+numberOfServerNodes: 1
+optimized: false
+seed: 34
+serverNode: true
+startns3: false
+tracesEnabled: false

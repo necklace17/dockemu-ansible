@@ -15,3 +15,6 @@ docker exec -it $(docker ps -aqf "name=coapcont-client-0") /bin/bash
 
 # Remove container
 docker rm $(docker ps -aqf "name=coapcont-client-6")
+
+# Remove all container
+docker rm -f $(docker ps -a -q)
