@@ -1,8 +1,13 @@
 FROM tensorflow/tensorflow
 ENV GRPC_VERBOSITY=debug
 
-# wget
-RUN apt-get update && apt-get install net-tools iproute2 iputils-ping iptables nmap vim -y
+RUN apt-get update \
+    &&  apt-get install net-tools \
+                        iproute2 \
+                        iputils-ping \
+                        iptables \
+                        nmap \
+                        vim -y
 
 COPY server.py /server.py
 COPY wrapper.sh /wrapper.sh
