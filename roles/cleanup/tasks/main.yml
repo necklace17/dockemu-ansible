@@ -71,11 +71,11 @@
        ignore_errors: yes
 
      - name: remove client image
-       command:  "docker image rm coapcont_client:latest"
+       command:  "docker image rm {{ baseContainerName }}_client:latest"
        ignore_errors: yes
 
      - name: remove server image
-       command:  "docker image rm coapcont_server:latest"
+       command:  "docker image rm {{ baseContainerName }}_server:latest"
        ignore_errors: yes
 
 #     - name: remove all images

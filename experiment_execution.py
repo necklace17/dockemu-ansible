@@ -26,6 +26,7 @@ END_NUMBER_OF_CLIENTS = 5
 NUMBER_OF_EXECUTIONS = 2
 NS3_NETWORK_SCRIPT = "tap-csma-virtual-machine-client-server"
 NUMBER_OF_LEARNING_ROUNDS = 3
+BASE_CONTAINER_NAME = "fliot"
 SRC_FOLDER = "/home/dockemu/src/dockemu/"
 
 
@@ -44,14 +45,11 @@ def follow_file(file_name, happy_break_string, bad_break_string=None):
     """Follows a file and breaks if the happy or bad break_string appears."""
     while not os.path.isfile(file_name):
         # Wait till file is created...
-        # logging.info(f"File {file_name} does not exist yet..")
         time.sleep(1)
     while True:
         file = open(file_name, "r")
         content = file.read()
-        # logging.info(f"file content: {content}")
         if happy_break_string in content:
-            # logging.info(f"string '{happy_break_string}' in {content}")
             return
         elif bad_break_string and bad_break_string in content:
             raise Exception(f"Found '{happy_break_string}' in {file_name}")
@@ -78,6 +76,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
         logging.info(f"Name of experiment {experiment_name}")
         experiment_parameters = {
             "experimentName": experiment_name,
+            "baseContainerName": BASE_CONTAINER_NAME,
             "ns3NetworkScript": NS3_NETWORK_SCRIPT,
             "numberOfClientNodes": number_of_clients,
             "numberOfRounds": NUMBER_OF_LEARNING_ROUNDS,
@@ -96,8 +95,8 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
         time.sleep(60)
         logging.info("Scan client logs...")
         for client in range(START_NUMBER_OF_CLIENTS):
-            client_name = f"coapcont-{client}"
-            client_log_file = os.path.join(log_folder, f"{client_name}/coap-client.log")
+            client_name = f"{BASE_CONTAINER_NAME}-{client}"
+            client_log_file = os.path.join(log_folder, f"{client_name}/client.log")
             follow_file(client_log_file, "ChannelConnectivity.READY")
             logging.info(
                 f"Client {client_name} has established connectivity to the server"
@@ -105,7 +104,9 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
 
         # Check for server logs
         logging.info("Scan server logs...")
-        server_log_file = os.path.join(log_folder, "coapcont-server-0/coap-server.log")
+        server_log_file = os.path.join(
+            log_folder, f"{BASE_CONTAINER_NAME}-server-0/server.log"
+        )
         # Watch server logs
         follow_file(server_log_file, "Finish")
         logging.info("Server collected all data from the clients")
@@ -128,8 +129,8 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
         )
         # Log experiment parameters for each client
         for client in range(START_NUMBER_OF_CLIENTS):
-            client_name = f"coapcont-{client}"
-            client_log_file = os.path.join(log_folder, f"{client_name}/coap-client.log")
+            client_name = f"{BASE_CONTAINER_NAME}-{client}"
+            client_log_file = os.path.join(log_folder, f"{client_name}/client.log")
             client_log_file = open(client_log_file)
             file_content = client_log_file.readlines()
             for line in file_content:

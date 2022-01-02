@@ -1,5 +1,7 @@
 FROM tensorflow/tensorflow
 ENV GRPC_VERBOSITY=debug
+ENV SERVERNAME=server-0-dockemu
+ENV SERVERPORT=8080
 
 RUN apt-get update \
     &&  apt-get install net-tools \
@@ -22,5 +24,5 @@ RUN chmod +x /client.py
 RUN chmod +x /wrapper.sh
 
 CMD sleep 60 \
-    && /wrapper.sh >> /var/log/dockemu/coap-client.log
+    && /wrapper.sh >> /var/log/dockemu/client.log
 EXPOSE 8080

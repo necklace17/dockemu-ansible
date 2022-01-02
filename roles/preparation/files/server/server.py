@@ -4,7 +4,6 @@ import flwr as fl
 import logging
 import sys
 
-
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
 
@@ -23,7 +22,7 @@ strategy = fl.server.strategy.FedAvg(
 if __name__ == "__main__":
     try:
         fl.server.start_server(
-            "0.0.0.0:8080",
+            f"0.0.0.0:{os.getenv('SERVERPORT')}",
             config={"num_rounds": int(os.getenv("NUMBER_OF_ROUNDS"))},
             strategy=strategy,
         )

@@ -1,7 +1,7 @@
-baseContainerName: coapcont
+baseContainerName: fliot
 deployFolder: /home/dockemu/src/dockemu
 emulationTime: 3000
-experimentName: 2022-01-01-19-25-35_0_tap-csma-virtual-machine-client-server_3_34
+experimentName: 2022-01-02-13-28-32_1_tap-csma-virtual-machine-client-server_2_860
 extension: .tar.bz2
 logsDirectory: /var/dockemu/logs/
 nodePause: 1
@@ -11,11 +11,11 @@ ns3NetworkParameters: --ns3::CsmaChannel::DataRate=100000000
 ns3NetworkScript: tap-csma-virtual-machine-client-server
 nsCodeFolder: ns-3.29
 nsVersion: ns-allinone-3.29
-numberOfClientNodes: 3
+numberOfClientNodes: 2
 numberOfRounds: 3
 numberOfServerNodes: 1
 optimized: false
-seed: 34
+seed: 860
 serverNode: true
 startns3: false
 tracesEnabled: false

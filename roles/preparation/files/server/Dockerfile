@@ -1,5 +1,7 @@
 FROM tensorflow/tensorflow
 ENV GRPC_VERBOSITY=debug
+ENV SERVERNAME=server-0-dockemu
+ENV SERVERPORT=8080
 
 RUN apt-get update \
     &&  apt-get install net-tools \
@@ -21,5 +23,5 @@ RUN pip3 install flwr
 RUN chmod +x /server.py
 RUN chmod +x /wrapper.sh
 
-CMD /wrapper.sh >> /var/log/dockemu/coap-server.log
+CMD /wrapper.sh >> /var/log/dockemu/server.log
 EXPOSE 8080
