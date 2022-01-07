@@ -14,7 +14,7 @@ tail -f ~/src/dockemu/coap-experiment/logs/fliot-server-0/server.log
 docker exec -it $(docker ps -aqf "name=fliot-client-0") /bin/bash
 
 # Remove container
-docker rm $(docker ps -aqf "name=fliot-client-6")
+docker rm $(docker ps -aqf "name=fliot-client-0")
 
 # Remove all container
 docker rm -f $(docker ps -a -q)

@@ -23,6 +23,9 @@
 - name: Copy pickle_cifar
   copy: "src=files/client/pickle_cifar dest={{ deployFolder }}/client/"
 
+- name: Copy pickle_split_string
+  copy: "src=files/client/pickle_split_string dest={{ deployFolder }}/client/"
+
 - name: Copy Dockerfile for server nodes
   copy: "src=files/server/Dockerfile dest={{ deployFolder }}/server/"
 

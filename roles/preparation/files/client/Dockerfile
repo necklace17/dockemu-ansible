@@ -13,6 +13,7 @@ RUN apt-get update \
 
 COPY client.py /client.py
 COPY pickle_cifar /pickle_cifar
+COPY pickle_split_string /pickle_split_string
 COPY wrapper.sh /wrapper.sh
 
 # update pip
