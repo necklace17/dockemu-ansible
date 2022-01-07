@@ -60,13 +60,13 @@
 //
 #include <iostream>
 #include <fstream>
-
+#include <string>
+#include <sstream>
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/csma-module.h"
 #include "ns3/tap-bridge-module.h"
-
- #include "ns3/netanim-module.h"
+#include "ns3/netanim-module.h"
 
 using namespace ns3;
 
@@ -76,15 +76,17 @@ int
 main (int argc, char *argv[])
 {
   bool AnimationOn = false;
-  int NumClientNodes = 5;
+  int NumClientNodes = 20;
   int NumServerNodes = 1;
   double TotalTime = 600.0;
+  int errorRateFactor = 1;
 
   CommandLine cmd;
   cmd.AddValue ("NumClientNodes", "Number of client nodes/devices", NumClientNodes);
   cmd.AddValue ("NumServerNodes", "Number of server nodes/devices", NumServerNodes);
   cmd.AddValue ("TotalTime", "Total simulation time", TotalTime);
   cmd.AddValue ("AnimationOn", "Enable animation", AnimationOn);
+  cmd.AddValue ("ErrorRateFactor", "Error Rate Factor", errorRateFactor);
 
   cmd.Parse (argc,argv);
 
@@ -96,7 +98,14 @@ main (int argc, char *argv[])
   GlobalValue::Bind ("SimulatorImplementationType", StringValue ("ns3::RealtimeSimulatorImpl"));
   GlobalValue::Bind ("ChecksumEnabled", BooleanValue (true));
 
+  // Add error rate
+  Config::SetDefault ("ns3::RateErrorModel::ErrorRate", DoubleValue (0.001 * errorRateFactor));
+  Config::SetDefault ("ns3::RateErrorModel::ErrorUnit", StringValue ("ERROR_UNIT_PACKET"));
 
+  Config::SetDefault ("ns3::BurstErrorModel::ErrorRate", DoubleValue (0.01 * errorRateFactor));
+  std::ostringstream burstSize;
+  burstSize << "ns3::UniformRandomVariable[Min=1|Max=" << std::to_string(errorRateFactor * 3) << "]";
+  Config::SetDefault ("ns3::BurstErrorModel::BurstSize", StringValue (burstSize.str()));
   //
   // Create two ghost nodes.  The first will represent the virtual machine host
   // on the left side of the network; and the second will represent the VM on 

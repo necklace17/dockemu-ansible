@@ -1,7 +1,7 @@
 baseContainerName: fliot
 deployFolder: /home/dockemu/src/dockemu
 emulationTime: 3000
-experimentName: 2022-01-02-13-28-32_1_tap-csma-virtual-machine-client-server_2_860
+experimentName: 2022-01-07-15-16-38_1_tap-csma-virtual-machine-client-server_2_422
 extension: .tar.bz2
 logsDirectory: /var/dockemu/logs/
 nodePause: 1
@@ -15,7 +15,8 @@ numberOfClientNodes: 2
 numberOfRounds: 3
 numberOfServerNodes: 1
 optimized: false
-seed: 860
+seed: 422
 serverNode: true
 startns3: false
 tracesEnabled: false
+errorRateFactor: 1
