@@ -51,13 +51,13 @@
 #CREATE LOG FOLDERS
 - name: Creates log folders for each client node
   file:
-    path: "{{ deployFolder }}/{{ experimentName }}/logs/{{ baseContainerName }}-{{ item }}"
+    path: "{{ deployFolder }}/logs/{{ experimentName }}/logs/{{ baseContainerName }}-{{ item }}"
     state: directory
   with_sequence: "start=0 count={{ numberOfClientNodes }}"
 
 - name: Creates log folders for each server node
   file:
-    path: "{{ deployFolder }}/{{ experimentName }}/logs/{{ baseContainerName }}-server-{{ item }}"
+    path: "{{ deployFolder }}/logs/{{ experimentName }}/logs/{{ baseContainerName }}-server-{{ item }}"
     state: directory
   with_sequence: "start=0 count={{ numberOfServerNodes }}"
 

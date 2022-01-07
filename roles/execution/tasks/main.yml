@@ -11,7 +11,7 @@
             tty: yes
             hostname: "server-{{ item }}-dockemu"
             volumes:
-                 - "{{ deployFolder }}/{{ experimentName }}/logs/{{ baseContainerName }}-server-{{ item }}:/var/log/dockemu"
+                 - "{{ deployFolder }}/logs/{{ experimentName }}/logs/{{ baseContainerName }}-server-{{ item }}:/var/log/dockemu"
             privileged: yes
             sysctls:
                  net.ipv6.conf.all.disable_ipv6: 0
@@ -31,7 +31,7 @@
             tty: yes
             hostname: "client-{{ item }}-dockemu"
             volumes:
-                 - "{{ deployFolder }}/{{ experimentName }}/logs/{{ baseContainerName }}-{{ item }}:/var/log/dockemu"
+                 - "{{ deployFolder }}/logs/{{ experimentName }}/logs/{{ baseContainerName }}-{{ item }}:/var/log/dockemu"
             privileged: yes
             sysctls:
                  net.ipv6.conf.all.disable_ipv6: 0
