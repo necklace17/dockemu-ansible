@@ -1,11 +1,14 @@
 """Script for experiment execution."""
 import logging
 import os
+import pickle
 import random
 import subprocess
 import sys
 import time
 from datetime import datetime
+
+import numpy as np
 import yaml
 
 
@@ -31,10 +34,19 @@ END_NUMBER_OF_CLIENTS = 2
 NUMBER_OF_EXECUTIONS = 1
 NS3_NETWORK_SCRIPT = "tap-csma-virtual-machine-client-server"
 NUMBER_OF_LEARNING_ROUNDS = 3
-ERROR_RATE_FACTORS = [1, 5, 10]
+ERROR_RATE_FACTORS = [
+    1,
+    # 5,
+    # 10
+]
+DATASET_ENTRIES = 50000
 BASE_CONTAINER_NAME = "fliot"
 SRC_FOLDER = "/home/dockemu/src/dockemu/"
 TIME_LOGGING_FORMAT = "%Y-%m-%d %H:%M:%S,%f"
+CLIENT_DOCKER_PREP_PATH = (
+    "/home/dockemu/PycharmProjects/dockemu-ansible-fl/roles/preparation/files/client/"
+)
+DATASET_SPLIT_STRING_PICKLE_NAME = "pickle_split_string"
 
 
 def yaml_modification(**kwargs):
@@ -66,6 +78,38 @@ def follow_file(file_name, happy_break_string, bad_break_string=None):
         time.sleep(1)
 
 
+def generate_dataset_split_string(clients_count, dataset_entries_count):
+    """Generates a string with random integers in the number of clients, which together sum up to the number of entries
+    in the dataset."""
+    # Generate random float values
+    random_numbers = [np.random.random_sample() for _ in range(clients_count)]
+    # Divide each value by the sum of the random numbers and multiply it with the count of database entries. Finally,
+    # cast it to int
+    sum_random_numbers = np.sum(random_numbers)
+    split_string = [
+        int(np.round(i / sum_random_numbers * dataset_entries_count))
+        for i in random_numbers
+    ]
+    # Get the rounding deviation which occurred in the previous operation, select a random value in the dataset and
+    # equalize the deviation
+    rounding_deviation = np.sum(split_string) - dataset_entries_count
+    while True:
+        random_position = random.randint(0, clients_count - 1)
+        if split_string[random_position] > rounding_deviation:
+            split_string[random_position] = (
+                split_string[random_position] - rounding_deviation
+            )
+            break
+    sum_up_split_string = []
+    for i, v in enumerate(split_string):
+        if i == 0:
+            sum_up_split_string.append(v)
+        else:
+            sum_up_split_string.append(v + sum_up_split_string[i - 1])
+    return sum_up_split_string
+
+
+generate_dataset_split_string(START_NUMBER_OF_CLIENTS, DATASET_ENTRIES)
 logging.info("-" * 30)
 logging.info("Start experiment run")
 logging.info("-" * 30)
@@ -102,6 +146,16 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
             log_folder = os.path.join(SRC_FOLDER, "logs", experiment_name, "logs")
             # Modify experiment configuration
             yaml_modification(**experiment_parameters)
+
+            # Save pickle of split string in the client folder.
+            with open(
+                os.path.join(CLIENT_DOCKER_PREP_PATH, DATASET_SPLIT_STRING_PICKLE_NAME),
+                "wb",
+            ) as f:
+                pickle.dump(
+                    generate_dataset_split_string(number_of_clients, DATASET_ENTRIES), f
+                )
+
             logging.info("Script configuration finished. Execute Dockemu..")
             # Execute experiment
             subprocess.call(DOCKEMU_SCRIPT)
@@ -166,11 +220,6 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                             f"{line}"
                         )
                         round_no += 1
-
-            # TODO: Collect host statistics and save to experiment folder
-            # 1. TODO: Collect CPU usage
-            # 2. TODO: Collect GPU usage
-            # 3. TODO: Collect memory usage
 
             # Cleanup environment
             subprocess.call(DOCKEMU_CLEANUP_SCRIPT)

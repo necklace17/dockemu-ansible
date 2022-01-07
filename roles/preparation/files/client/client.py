@@ -22,11 +22,20 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 HOSTNAME = socket.gethostname()
 logging.info(f"Hostname :{HOSTNAME}")
-DATASET_PART = HOSTNAME.split("-")[1]
-logging.info(f"Part of dataset to use: {DATASET_PART}")
-
 
 SERVER_SOCKET = f"{os.getenv('SERVERNAME')}:{os.getenv('SERVERPORT')}"
+
+dataset_split_string = pickle.load(open("pickle_split_string", "rb"))
+HOST_NUMBER = int(HOSTNAME.split("-")[1])
+
+if HOST_NUMBER == 0:
+    SPLIT_BEFORE = 0
+else:
+    SPLIT_BEFORE = dataset_split_string[HOST_NUMBER - 1]
+MY_SPLIT_STRING = dataset_split_string[HOST_NUMBER]
+logging.info(
+    f"My host number is {str(HOST_NUMBER)}. I will take dataset part [{SPLIT_BEFORE}:{MY_SPLIT_STRING}]"
+)
 
 if __name__ == "__main__":
     # Load and compile Keras model
@@ -43,7 +52,12 @@ if __name__ == "__main__":
 
         def fit(self, parameters, config):  # type: ignore
             model.set_weights(parameters)
-            model.fit(x_train, y_train, epochs=1, batch_size=32)
+            model.fit(
+                x_train[SPLIT_BEFORE:MY_SPLIT_STRING],
+                y_train[SPLIT_BEFORE:MY_SPLIT_STRING],
+                epochs=1,
+                batch_size=32,
+            )
             return model.get_weights(), len(x_train), {}
 
         def evaluate(self, parameters, config):  # type: ignore
