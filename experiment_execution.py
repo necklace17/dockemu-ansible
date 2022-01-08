@@ -43,8 +43,8 @@ DATASET_ENTRIES = 50000
 BASE_CONTAINER_NAME = "fliot"
 SRC_FOLDER = "/home/dockemu/src/dockemu/"
 TIME_LOGGING_FORMAT = "%Y-%m-%d %H:%M:%S,%f"
-CLIENT_DOCKER_PREP_PATH = (
-    "/home/dockemu/PycharmProjects/dockemu-ansible-fl/roles/preparation/files/client/"
+MOUNTED_DOCKER_PREP_PATH = (
+    "/home/dockemu/PycharmProjects/dockemu-ansible-fl/roles/preparation/files/mounted/"
 )
 DATASET_SPLIT_STRING_PICKLE_NAME = "pickle_split_string"
 
@@ -149,7 +149,9 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
 
             # Save pickle of split string in the client folder.
             with open(
-                os.path.join(CLIENT_DOCKER_PREP_PATH, DATASET_SPLIT_STRING_PICKLE_NAME),
+                os.path.join(
+                    MOUNTED_DOCKER_PREP_PATH, DATASET_SPLIT_STRING_PICKLE_NAME
+                ),
                 "wb",
             ) as f:
                 pickle.dump(

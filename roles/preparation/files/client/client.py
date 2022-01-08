@@ -8,6 +8,8 @@ import tensorflow as tf
 import logging
 import sys
 
+MOUNTED_PATH = "/var/mounted"
+
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
 
@@ -25,7 +27,9 @@ logging.info(f"Hostname :{HOSTNAME}")
 
 SERVER_SOCKET = f"{os.getenv('SERVERNAME')}:{os.getenv('SERVERPORT')}"
 
-dataset_split_string = pickle.load(open("pickle_split_string", "rb"))
+dataset_split_string = pickle.load(
+    open(os.path.join(MOUNTED_PATH, "pickle_split_string"), "rb")
+)
 HOST_NUMBER = int(HOSTNAME.split("-")[1])
 
 if HOST_NUMBER == 0:
@@ -43,7 +47,9 @@ if __name__ == "__main__":
     model.compile("adam", "sparse_categorical_crossentropy", metrics=["accuracy"])
 
     # Load CIFAR-10 dataset
-    (x_train, y_train), (x_test, y_test) = pickle.load(open("pickle_cifar", "rb"))
+    (x_train, y_train), (x_test, y_test) = pickle.load(
+        open(os.path.join(MOUNTED_PATH, "../mounted/pickle_cifar"), "rb")
+    )
 
     # Define Flower client
     class CifarClient(fl.client.NumPyClient):
