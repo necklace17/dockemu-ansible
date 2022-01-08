@@ -52,20 +52,20 @@
        ignore_errors: yes
 
      - name: remove client bridge interfaces
-       command:  "ip link delete br-c-{{ item.0 }} type bridge"  
+       command:  "ip link delete br-c-{{ item }} type bridge"
        become: yes
        with_sequence: "start=0 count={{ numberOfClientNodes }}"
        ignore_errors: yes
 
 # REMOVE tap INTERFACES
      - name: remove server tap interfaces
-       command:  "ip link delete tap-s-{{ item.0 }} type bridge"  
+       command:  "ip link delete tap-s-{{ item }} type bridge"
        become: yes
        with_sequence: "start=0 count={{ numberOfServerNodes }}"
        ignore_errors: yes
 
      - name: remove client tap interfaces
-       command:  "ip link delete tap-c-{{ item.0 }} type bridge"  
+       command:  "ip link delete tap-c-{{ item }} type bridge"
        become: yes
        with_sequence: "start=0 count={{ numberOfClientNodes }}"
        ignore_errors: yes
@@ -77,6 +77,3 @@
      - name: remove server image
        command:  "docker image rm {{ baseContainerName }}_server:latest"
        ignore_errors: yes
-
-#     - name: remove all images
-#       command: "docker rmi -f $(docker images -aq)"
