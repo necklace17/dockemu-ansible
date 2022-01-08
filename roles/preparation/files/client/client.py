@@ -66,9 +66,10 @@ if __name__ == "__main__":
             return loss, len(x_test), {"accuracy": accuracy}
 
     # Start Flower client
-    for i in range(0, 5):
+    counter = 0
+    while True:
         try:
-            logging.info(f"Try connection attempt number {i}")
+            logging.info(f"Try connection attempt number {counter}")
             fl.client.start_numpy_client(SERVER_SOCKET, client=CifarClient())
             exit()
         except Exception as error:
@@ -76,6 +77,7 @@ if __name__ == "__main__":
             wait_time = 5
             logging.info(f"Wait {wait_time} seconds")
             time.sleep(wait_time)
+        counter += 1
     logging.info("Connection was not successful.")
     logging.info("Pause script.")
     time.sleep(3000)
