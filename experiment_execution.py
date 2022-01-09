@@ -245,4 +245,4 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                         round_no += 1
 
             # Cleanup environment
-            # subprocess.call(DOCKEMU_CLEANUP_SCRIPT)
+            subprocess.call(DOCKEMU_CLEANUP_SCRIPT)
