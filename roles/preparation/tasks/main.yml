@@ -24,7 +24,10 @@
   copy: "src=files/mounted/pickle_cifar dest={{ deployFolder }}/mounted/"
 
 - name: Copy pickle_split_string
-  copy: "src=files/mounted/pickle_split_string dest={{ deployFolder }}/mounted/"
+  copy: "src=files/mounted/pickle_train_split_string dest={{ deployFolder }}/mounted/"
+
+- name: Copy pickle_split_string
+  copy: "src=files/mounted/pickle_test_split_string dest={{ deployFolder }}/mounted/"
 
 - name: Copy Dockerfile for server nodes
   copy: "src=files/server/Dockerfile dest={{ deployFolder }}/server/"
