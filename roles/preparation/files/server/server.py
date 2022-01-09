@@ -15,9 +15,7 @@ root.addHandler(handler)
 
 # Start Flower server for three rounds of federated learning
 
-strategy = fl.server.strategy.FedAvg(
-    min_eval_clients=int(os.getenv("NUMBER_OF_CLIENTS"))
-)
+strategy = fl.server.strategy.FedAvg(fraction_fit=0.9, fraction_eval=0.9)
 
 if __name__ == "__main__":
     try:

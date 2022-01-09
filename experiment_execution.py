@@ -39,14 +39,18 @@ ERROR_RATE_FACTORS = [
     # 5,
     # 10
 ]
-DATASET_ENTRIES = 50000
+# Set integer for reproducibility
+FIXED_SEED = None  # 42
+TRAIN_DATASET_ENTRIES = 50000
+TEST_DATASET_ENTRIES = 10000
 BASE_CONTAINER_NAME = "fliot"
 SRC_FOLDER = "/home/dockemu/src/dockemu/"
 TIME_LOGGING_FORMAT = "%Y-%m-%d %H:%M:%S,%f"
 MOUNTED_DOCKER_PREP_PATH = (
     "/home/dockemu/PycharmProjects/dockemu-ansible-fl/roles/preparation/files/mounted/"
 )
-DATASET_SPLIT_STRING_PICKLE_NAME = "pickle_split_string"
+TRAIN_DATASET_SPLIT_STRING_PICKLE_NAME = "pickle_train_split_string"
+TEST_DATASET_SPLIT_STRING_PICKLE_NAME = "pickle_test_split_string"
 
 
 def yaml_modification(**kwargs):
@@ -109,7 +113,6 @@ def generate_dataset_split_string(clients_count, dataset_entries_count):
     return sum_up_split_string
 
 
-generate_dataset_split_string(START_NUMBER_OF_CLIENTS, DATASET_ENTRIES)
 logging.info("-" * 30)
 logging.info("Start experiment run")
 logging.info("-" * 30)
@@ -124,7 +127,12 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
             logging.info(f"Start execution number {execution_number + 1}")
             # Collect settings for experiment run
             timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-            seed = random.randint(1, 1000)
+            if not FIXED_SEED:
+                seed = random.randint(1, 1000)
+            else:
+                seed = FIXED_SEED
+            random.seed(seed)
+            np.random.seed(seed)
             experiment_name = (
                 f"{timestamp}_"
                 f"{execution_number + 1}_"
@@ -147,16 +155,25 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
             # Modify experiment configuration
             yaml_modification(**experiment_parameters)
 
-            # Save pickle of split string in the client folder.
-            with open(
-                os.path.join(
-                    MOUNTED_DOCKER_PREP_PATH, DATASET_SPLIT_STRING_PICKLE_NAME
-                ),
-                "wb",
-            ) as f:
-                pickle.dump(
-                    generate_dataset_split_string(number_of_clients, DATASET_ENTRIES), f
-                )
+            # Save pickle of train and test split string in the client folder.
+            for pickle_name, dataset in zip(
+                [
+                    TRAIN_DATASET_SPLIT_STRING_PICKLE_NAME,
+                    TEST_DATASET_SPLIT_STRING_PICKLE_NAME,
+                ],
+                [
+                    TRAIN_DATASET_ENTRIES,
+                    TEST_DATASET_ENTRIES,
+                ],
+            ):
+                with open(
+                    os.path.join(MOUNTED_DOCKER_PREP_PATH, pickle_name),
+                    "wb",
+                ) as f:
+                    pickle.dump(
+                        generate_dataset_split_string(number_of_clients, dataset),
+                        f,
+                    )
 
             logging.info("Script configuration finished. Execute Dockemu..")
             # Execute experiment
@@ -183,13 +200,16 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                 log_folder, f"{BASE_CONTAINER_NAME}-server-0", "server.log"
             )
             # Watch server logs
-            follow_file(server_log_file, "Finish")
+            follow_file(server_log_file, "FL finished")
             logging.info("Server collected all data from the clients")
             # Save the server logs
             server_log_file = open(server_log_file)
+            # Wait till 'loss' is inside the file and experiment is finished
             file_content = server_log_file.readlines()
             for line in file_content:
-                if "Flower server running " in line:
+                if "FL finished" in line:
+                    time_from_flwr = line.split(" ")[-1]
+                elif "Flower server running " in line:
                     start_time = line.split(" - ")[0]
                 elif "losses_distributed" in line:
                     losses = line.split(" - ")[-1]
@@ -205,6 +225,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                 f"start_time: {start_time}, \n"
                 f"end_time: {end_time}, \n"
                 f"total_time_needed: {total_time_needed}, \n"
+                f"time_from_flwr {time_from_flwr}, \n"
                 f"losses: {losses}."
             )
 
@@ -224,4 +245,4 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                         round_no += 1
 
             # Cleanup environment
-            subprocess.call(DOCKEMU_CLEANUP_SCRIPT)
+            # subprocess.call(DOCKEMU_CLEANUP_SCRIPT)

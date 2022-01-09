@@ -27,18 +27,31 @@ logging.info(f"Hostname :{HOSTNAME}")
 
 SERVER_SOCKET = f"{os.getenv('SERVERNAME')}:{os.getenv('SERVERPORT')}"
 
-dataset_split_string = pickle.load(
-    open(os.path.join(MOUNTED_PATH, "pickle_split_string"), "rb")
+dataset_train_split_string = pickle.load(
+    open(os.path.join(MOUNTED_PATH, "pickle_train_split_string"), "rb")
+)
+dataset_test_split_string = pickle.load(
+    open(os.path.join(MOUNTED_PATH, "pickle_test_split_string"), "rb")
 )
 HOST_NUMBER = int(HOSTNAME.split("-")[1])
+logging.info(f"My host number is {str(HOST_NUMBER)}")
 
 if HOST_NUMBER == 0:
-    SPLIT_BEFORE = 0
+    TRAIN_SPLIT_BEFORE = 0
 else:
-    SPLIT_BEFORE = dataset_split_string[HOST_NUMBER - 1]
-MY_SPLIT_STRING = dataset_split_string[HOST_NUMBER]
+    TRAIN_SPLIT_BEFORE = dataset_train_split_string[HOST_NUMBER - 1]
+MY_TRAIN_SPLIT_STRING = dataset_train_split_string[HOST_NUMBER]
 logging.info(
-    f"My host number is {str(HOST_NUMBER)}. I will take dataset part [{SPLIT_BEFORE}:{MY_SPLIT_STRING}]"
+    f"I will take dataset part [{TRAIN_SPLIT_BEFORE}:{MY_TRAIN_SPLIT_STRING}] for training"
+)
+
+if HOST_NUMBER == 0:
+    TEST_SPLIT_BEFORE = 0
+else:
+    TEST_SPLIT_BEFORE = dataset_test_split_string[HOST_NUMBER - 1]
+MY_TEST_SPLIT_STRING = dataset_test_split_string[HOST_NUMBER]
+logging.info(
+    f"I will take dataset part [{TEST_SPLIT_BEFORE}:{MY_TEST_SPLIT_STRING}] for testing"
 )
 
 if __name__ == "__main__":
@@ -59,8 +72,8 @@ if __name__ == "__main__":
         def fit(self, parameters, config):  # type: ignore
             model.set_weights(parameters)
             model.fit(
-                x_train[SPLIT_BEFORE:MY_SPLIT_STRING],
-                y_train[SPLIT_BEFORE:MY_SPLIT_STRING],
+                x_train[TRAIN_SPLIT_BEFORE:MY_TRAIN_SPLIT_STRING],
+                y_train[TRAIN_SPLIT_BEFORE:MY_TRAIN_SPLIT_STRING],
                 epochs=1,
                 batch_size=32,
             )
@@ -68,7 +81,10 @@ if __name__ == "__main__":
 
         def evaluate(self, parameters, config):  # type: ignore
             model.set_weights(parameters)
-            loss, accuracy = model.evaluate(x_test, y_test)
+            loss, accuracy = model.evaluate(
+                x_test[TEST_SPLIT_BEFORE:MY_TEST_SPLIT_STRING],
+                y_test[TEST_SPLIT_BEFORE:MY_TEST_SPLIT_STRING],
+            )
             return loss, len(x_test), {"accuracy": accuracy}
 
     # Start Flower client
@@ -77,7 +93,7 @@ if __name__ == "__main__":
         try:
             logging.info(f"Try connection attempt number {counter}")
             fl.client.start_numpy_client(SERVER_SOCKET, client=CifarClient())
-            exit()
+            sys.exit()
         except Exception as error:
             logging.error(f"with error: {error}")
             wait_time = 5
