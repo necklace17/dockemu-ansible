@@ -14,5 +14,6 @@ RUN pip3 install flwr
 RUN chmod +x /wrapper.sh
 
 CMD sleep 60 \
-    && /wrapper.sh >> /var/log/dockemu/client.log
-EXPOSE 8080
+    && /wrapper.sh >> /var/log/dockemu/client.log \
+    && tail -f /dev/null
+EXPOSE 1000:65535

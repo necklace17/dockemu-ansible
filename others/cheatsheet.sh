@@ -17,4 +17,4 @@ docker exec -it $(docker ps -aqf "name=fliot-client-0") /bin/bash
 docker rm $(docker ps -aqf "name=fliot-client-0")
 
 # Remove all container
-docker rm -f $(docker ps -a -q)
+docker rm -f $(docker ps -aq)

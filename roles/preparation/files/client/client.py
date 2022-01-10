@@ -22,47 +22,51 @@ root.addHandler(handler)
 # Make TensorFlow log less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-HOSTNAME = socket.gethostname()
-logging.info(f"Hostname :{HOSTNAME}")
-
-SERVER_SOCKET = f"{os.getenv('SERVERNAME')}:{os.getenv('SERVERPORT')}"
-
-dataset_train_split_string = pickle.load(
-    open(os.path.join(MOUNTED_PATH, "pickle_train_split_string"), "rb")
-)
-dataset_test_split_string = pickle.load(
-    open(os.path.join(MOUNTED_PATH, "pickle_test_split_string"), "rb")
-)
-HOST_NUMBER = int(HOSTNAME.split("-")[1])
-logging.info(f"My host number is {str(HOST_NUMBER)}")
-
-if HOST_NUMBER == 0:
-    TRAIN_SPLIT_BEFORE = 0
-else:
-    TRAIN_SPLIT_BEFORE = dataset_train_split_string[HOST_NUMBER - 1]
-MY_TRAIN_SPLIT_STRING = dataset_train_split_string[HOST_NUMBER]
-logging.info(
-    f"I will take dataset part [{TRAIN_SPLIT_BEFORE}:{MY_TRAIN_SPLIT_STRING}] for training"
-)
-
-if HOST_NUMBER == 0:
-    TEST_SPLIT_BEFORE = 0
-else:
-    TEST_SPLIT_BEFORE = dataset_test_split_string[HOST_NUMBER - 1]
-MY_TEST_SPLIT_STRING = dataset_test_split_string[HOST_NUMBER]
-logging.info(
-    f"I will take dataset part [{TEST_SPLIT_BEFORE}:{MY_TEST_SPLIT_STRING}] for testing"
-)
 
 if __name__ == "__main__":
-    # Load and compile Keras model
-    model = tf.keras.applications.MobileNetV2((32, 32, 3), classes=10, weights=None)
-    model.compile("adam", "sparse_categorical_crossentropy", metrics=["accuracy"])
+    HOSTNAME = socket.gethostname()
+    logging.info(f"Hostname: {HOSTNAME}")
 
+    SERVER_SOCKET = f"{os.getenv('SERVERNAME')}:{os.getenv('SERVERPORT')}"
+
+    dataset_train_split_string = pickle.load(
+        open(os.path.join(MOUNTED_PATH, "pickle_train_split_string"), "rb")
+    )
+    dataset_test_split_string = pickle.load(
+        open(os.path.join(MOUNTED_PATH, "pickle_test_split_string"), "rb")
+    )
+    HOST_NUMBER = int(HOSTNAME.split("-")[1])
+    logging.info(f"My host number is {str(HOST_NUMBER)}")
+
+    if HOST_NUMBER == 0:
+        TRAIN_SPLIT_BEFORE = 0
+    else:
+        TRAIN_SPLIT_BEFORE = dataset_train_split_string[HOST_NUMBER - 1]
+    MY_TRAIN_SPLIT_STRING = dataset_train_split_string[HOST_NUMBER]
+    logging.info(
+        f"I will take dataset part [{TRAIN_SPLIT_BEFORE}:{MY_TRAIN_SPLIT_STRING}] for training"
+    )
+
+    if HOST_NUMBER == 0:
+        TEST_SPLIT_BEFORE = 0
+    else:
+        TEST_SPLIT_BEFORE = dataset_test_split_string[HOST_NUMBER - 1]
+    MY_TEST_SPLIT_STRING = dataset_test_split_string[HOST_NUMBER]
+    logging.info(
+        f"I will take dataset part [{TEST_SPLIT_BEFORE}:{MY_TEST_SPLIT_STRING}] for testing"
+    )
     # Load CIFAR-10 dataset
     (x_train, y_train), (x_test, y_test) = pickle.load(
         open(os.path.join(MOUNTED_PATH, "../mounted/pickle_cifar"), "rb")
     )
+    x_train = x_train[TRAIN_SPLIT_BEFORE:MY_TRAIN_SPLIT_STRING]
+    y_train = y_train[TRAIN_SPLIT_BEFORE:MY_TRAIN_SPLIT_STRING]
+    x_test = x_test[TEST_SPLIT_BEFORE:MY_TEST_SPLIT_STRING]
+    y_test = y_test[TEST_SPLIT_BEFORE:MY_TEST_SPLIT_STRING]
+
+    # Load and compile Keras model
+    model = tf.keras.applications.MobileNetV2((32, 32, 3), classes=10, weights=None)
+    model.compile("adam", "sparse_categorical_crossentropy", metrics=["accuracy"])
 
     # Define Flower client
     class CifarClient(fl.client.NumPyClient):
@@ -72,8 +76,8 @@ if __name__ == "__main__":
         def fit(self, parameters, config):  # type: ignore
             model.set_weights(parameters)
             model.fit(
-                x_train[TRAIN_SPLIT_BEFORE:MY_TRAIN_SPLIT_STRING],
-                y_train[TRAIN_SPLIT_BEFORE:MY_TRAIN_SPLIT_STRING],
+                x_train,
+                y_train,
                 epochs=1,
                 batch_size=32,
             )
@@ -82,8 +86,8 @@ if __name__ == "__main__":
         def evaluate(self, parameters, config):  # type: ignore
             model.set_weights(parameters)
             loss, accuracy = model.evaluate(
-                x_test[TEST_SPLIT_BEFORE:MY_TEST_SPLIT_STRING],
-                y_test[TEST_SPLIT_BEFORE:MY_TEST_SPLIT_STRING],
+                x_test,
+                y_test,
             )
             return loss, len(x_test), {"accuracy": accuracy}
 
