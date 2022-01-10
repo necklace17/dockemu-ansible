@@ -300,14 +300,14 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
 
                 # losses_mod = re.findall(r"\[.*?\]", losses)
                 new_row = {
-                    "clients_count": "",
-                    "outtakes_factor": "",
-                    "fraction_factor": "",
-                    "connected_clients": "",
-                    "execution_time_calc": "",
-                    "execution_time_flwr": "",
-                    "start_time": "",
-                    "end_time": "",
+                    "clients_count": number_of_clients,
+                    "outtakes_factor": error_rate_factor,
+                    "fraction_factor": fraction_factor,
+                    "connected_clients": "TBD",
+                    "execution_time_calc": total_time_needed,
+                    "execution_time_flwr": time_from_flwr,
+                    "start_time": start_time,
+                    "end_time": end_time,
                 }
                 new_row.append(
                     {
