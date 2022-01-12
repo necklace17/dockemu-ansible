@@ -120,6 +120,14 @@ def generate_dataset_split_string(clients_count, dataset_entries_count):
     return sum_up_split_string
 
 
+def extract_logging_parameter_from_client_line(line):
+    """Extract the relevant parameters from the final client line."""
+    size = line.split("/")[0]
+    acc = line.split(" - ")[-1].split(" ")[-1]
+    loss = line.split(" - ")[-2].split(" ")[-1]
+    return int(size), float(acc), float(loss)
+
+
 logging.info("-" * 30)
 logging.info("Start experiment run")
 logging.info("-" * 30)
@@ -128,17 +136,24 @@ analytical_logs_dir = os.path.join(
     f"{datetime.now().strftime('%Y-%m-%d-%H-%M')}-analytical_logs",
 )
 os.mkdir(analytical_logs_dir)
+client_participation_headers = [
+    f"round_no_{i}_{round_type}_{step}_clients"
+    for i in range(1, NUMBER_OF_LEARNING_ROUNDS + 1)
+    for round_type in ["fit_round", "evaluate_round"]
+    for step in ["sampled", "received_failures"]
+]
 general_analytical_log_dataframe = pd.DataFrame(
     columns=[
         "clients_count",
         "outtakes_factor",
         "fraction_factor",
-        "connected_clients",
+        # "connected_clients",
         "execution_time_calc",
         "execution_time_flwr",
         "start_time",
         "end_time",
     ]
+    + client_participation_headers
     + [
         f"distributed_loss_round_no_{i}"
         for i in range(1, NUMBER_OF_LEARNING_ROUNDS + 1)
@@ -185,7 +200,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
             data_columns = (
                 ["client_no", "test_size", "training_size"]
                 + [
-                    f"round_{round_no}_epoch_{epoch}-{i}"
+                    f"round_{round_no}_epoch_{epoch}_{i}"
                     for round_no in range(1, NUMBER_OF_LEARNING_ROUNDS + 1)
                     for epoch in range(1, EPOCHS + 1)
                     for i in ["loss", "acc"]
@@ -261,6 +276,20 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                 elif "metrics_centralized" in line:
                     end_time = line.split(" - ")[0]
 
+            client_participations = []
+            for line in file_content:
+                if any(
+                    round_type in line for round_type in ["fit_round", "evaluate_round"]
+                ):
+                    ints = [int(clients) for clients in re.findall(r"\d+", line)]
+                    if "strategy" in line:
+                        logging.info(f"Strategy line: {line}")
+                        logging.info(f"Ints {str(ints)}")
+                        client_participations.append(f"{ints[-2]}/{ints[-1]}")
+                    logging.info(f"Received line: {line}")
+                    logging.info(f"Ints {str(ints)}")
+                    client_participations.append(f"{ints[-1]}/{ints[-2]}")
+
             total_time_needed = datetime.strptime(
                 end_time, TIME_LOGGING_FORMAT
             ) - datetime.strptime(start_time, TIME_LOGGING_FORMAT)
@@ -278,12 +307,18 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                     "clients_count": number_of_clients,
                     "outtakes_factor": error_rate_factor,
                     "fraction_factor": fraction_factor,
-                    # TODO: Check connected clients
-                    "connected_clients": "TBD",
-                    "execution_time_calc": total_time_needed,
-                    "execution_time_flwr": time_from_flwr,
+                    # # TODO: Check connected clients
+                    # "connected_clients": "TBD",
+                    "execution_time_calc": str(total_time_needed),
+                    "execution_time_flwr": float(time_from_flwr),
                     "start_time": start_time,
                     "end_time": end_time,
+                },
+                **{
+                    client_participation_header: client_participation
+                    for client_participation_header, client_participation in zip(
+                        client_participation_headers, client_participations
+                    )
                 },
                 **{
                     f"distributed_loss_round_no_{round_no}": distributed_loss
@@ -294,7 +329,9 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                 },
             }
             logging.info("General info to append for experiment:\n" f"{new_row}")
-            general_analytical_log_dataframe.append(new_row, ignore_index=True)
+            general_analytical_log_dataframe = general_analytical_log_dataframe.append(
+                new_row, ignore_index=True
+            )
 
             # Log experiment parameters for each client
             for client in range(number_of_clients):
@@ -305,8 +342,10 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                 # LEARNING_STEP = True
                 # round_no = 0
                 # epoch_step = 0
-                individual_analytical_dataframe.append(
-                    {"client_no": client}, ignore_index=True
+                individual_analytical_dataframe = (
+                    individual_analytical_dataframe.append(
+                        {"client_no": client}, ignore_index=True
+                    )
                 )
                 logging.info(
                     "individual_analytical_dataframe:\n"
@@ -320,7 +359,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                     NUMBER_OF_LEARNING_ROUNDS * (EPOCHS + 1)  # +1 for Test round
                 )
 
-                [logging.info(f"{line}\n") for i in finished_learning_lines]
+                [logging.info(f"{i}\n") for i in finished_learning_lines]
                 round_no = 1
                 epoch_step = 1
                 for line in finished_learning_lines:
@@ -331,13 +370,55 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                                 f"{round_no} with the following parameters:\n"
                                 f"{line}"
                             )
+                            # Get relevant values from line
+                            (
+                                training_size,
+                                training_loss,
+                                training_acc,
+                            ) = extract_logging_parameter_from_client_line(line)
+                            # Append values on correct place in the dataframe
+                            individual_analytical_dataframe.loc[
+                                individual_analytical_dataframe["client_no"] == client,
+                                "training_size",
+                            ] = training_size
+                            individual_analytical_dataframe.loc[
+                                individual_analytical_dataframe["client_no"] == client,
+                                f"round_{round_no}_epoch_{epoch_step}_loss",
+                            ] = training_loss
+                            individual_analytical_dataframe.loc[
+                                individual_analytical_dataframe["client_no"] == client,
+                                f"round_{round_no}_epoch_{epoch_step}_acc",
+                            ] = training_acc
+
+                            # Increase epoch step
                             epoch_step += 1
                         else:
                             logging.info(
-                                f"Client {client} has finished a test step in round no {round_no} with the following"
+                                f"Client {client} has finished a test step in round no {round_no} with the following "
                                 f"parameters:\n"
                                 f"{line}"
                             )
+                            # Get relevant values from line
+                            (
+                                test_size,
+                                test_loss,
+                                test_acc,
+                            ) = extract_logging_parameter_from_client_line(line)
+                            # Append values on correct place in the dataframe
+                            individual_analytical_dataframe.loc[
+                                individual_analytical_dataframe["client_no"] == client,
+                                "test_size",
+                            ] = test_size
+                            individual_analytical_dataframe.loc[
+                                individual_analytical_dataframe["client_no"] == client,
+                                f"round_{round_no}_test_loss",
+                            ] = test_loss
+                            individual_analytical_dataframe.loc[
+                                individual_analytical_dataframe["client_no"] == client,
+                                f"round_{round_no}_test_acc",
+                            ] = test_acc
+
+                            # Reset epoch step and increase round no
                             epoch_step = 1
                             round_no += 1
 
@@ -460,7 +541,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                 #         #         == number_of_clients
                 #         #     ][f"round_{round_no}_test_loss"] = acc
                 individual_analytical_dataframe.to_csv(
-                    os.path.join(analytical_logs_dir, experiment_name)
+                    os.path.join(analytical_logs_dir, f"{experiment_name}.csv")
                 )
 
             logging.error("Execution failed")
