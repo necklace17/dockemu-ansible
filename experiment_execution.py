@@ -31,22 +31,22 @@ YAML_CONFIG_FILE = "group_vars/all.yaml"
 DOCKEMU_SCRIPT = "./dockemu_execution.sh"
 DOCKEMU_CLEANUP_SCRIPT = "./dockemu_cleanup.sh"
 START_NUMBER_OF_CLIENTS = 2
-END_NUMBER_OF_CLIENTS = 3
+END_NUMBER_OF_CLIENTS = 2
 NO_CLEANUP = False
 NUMBER_OF_EXECUTIONS = 1
 NS3_NETWORK_SCRIPT = "tap-csma-virtual-machine-client-server"
 NUMBER_OF_LEARNING_ROUNDS = 3
 ERROR_RATE_FACTORS = [
     1,
-    5,
+    # 5,
     # 10
 ]
 # Set integer for reproducibility
 FRACTION_FACTORS = [
-    4,
+    # 4,
     5,
 ]
-EPOCHS = 1
+EPOCHS = 3
 FIXED_SEED = None  # 42
 TRAIN_DATASET_ENTRIES = 50000
 TEST_DATASET_ENTRIES = 10000
@@ -389,10 +389,6 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                             {"client_no": client}, ignore_index=True
                         )
                     )
-                    logging.info(
-                        "individual_analytical_dataframe:\n"
-                        f"{individual_analytical_dataframe}"
-                    )
 
                     learning_data_lines = [
                         extract_logging_parameter_from_client_line(line)
@@ -427,7 +423,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                     round_no = 1
                     epoch_step = 1
                     for train_value in train_values:
-                        if epoch_step == EPOCHS:
+                        if epoch_step <= EPOCHS:
                             logging.info(
                                 f"Client {client} has finished the learning step epoch no {epoch_step} in round no "
                                 f"{round_no} with the following parameters:\n"
@@ -460,7 +456,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                         individual_analytical_dataframe.loc[
                             individual_analytical_dataframe["client_no"] == client,
                             f"round_{round_no + 1}_test_acc",
-                        ] = test_value["loss"]
+                        ] = test_value["acc"]
 
                     individual_analytical_dataframe.to_csv(
                         os.path.join(
