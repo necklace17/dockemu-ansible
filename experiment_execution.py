@@ -11,6 +11,7 @@ from datetime import datetime
 import yaml
 import numpy as np
 import pandas as pd
+import docker
 
 
 # Set logging configuration
@@ -22,7 +23,7 @@ file_handler = logging.FileHandler(
 )
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 for handler in [stdout_handler, file_handler]:
-    handler.setLevel(logging.DEBUG)
+    handler.setLevel(logging.INFO)
     handler.setFormatter(formatter)
     root.addHandler(handler)
 
@@ -31,7 +32,7 @@ YAML_CONFIG_FILE = "group_vars/all.yaml"
 DOCKEMU_SCRIPT = "./dockemu_execution.sh"
 DOCKEMU_CLEANUP_SCRIPT = "./dockemu_cleanup.sh"
 START_NUMBER_OF_CLIENTS = 2
-END_NUMBER_OF_CLIENTS = 2
+END_NUMBER_OF_CLIENTS = 3
 NUMBER_OF_EXECUTIONS = 1
 NS3_NETWORK_SCRIPT = "tap-csma-virtual-machine-client-server"
 NUMBER_OF_LEARNING_ROUNDS = 3
@@ -125,7 +126,26 @@ def extract_logging_parameter_from_client_line(line):
     size = line.split("/")[0]
     acc = line.split(" - ")[-1].split(" ")[-1]
     loss = line.split(" - ")[-2].split(" ")[-1]
-    return int(size), float(acc), float(loss)
+    return {"size": int(size), "acc": float(acc), "loss": float(loss)}
+
+
+def follow_container(container_name, happy_string, bad_string):
+    """Follows container logs until either the happy or bad string can be found."""
+    execution_client = docker.from_env()
+    while True:
+        server_container = execution_client.containers.get(container_name)
+        logs = str(server_container.logs())
+        if happy_string in logs:
+            return
+        elif bad_string in logs:
+            raise Exception(f"Bad string {bad_string} found in {logs}")
+        elif server_container.status == "exited":
+            raise Exception("Container has exited")
+        time.sleep(1)
+        logging.debug(
+            f"Container with container name {container_name} and id {server_container.short_id} "
+            f"has status: {server_container.status}"
+        )
 
 
 logging.info("-" * 30)
@@ -147,7 +167,7 @@ general_analytical_log_dataframe = pd.DataFrame(
         "clients_count",
         "outtakes_factor",
         "fraction_factor",
-        # "connected_clients",
+        "success",
         "execution_time_calc",
         "execution_time_flwr",
         "start_time",
@@ -159,6 +179,8 @@ general_analytical_log_dataframe = pd.DataFrame(
         for i in range(1, NUMBER_OF_LEARNING_ROUNDS + 1)
     ]
 )
+
+
 for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 1):
     logging.info("-" * 30)
     logging.info(f"Start experiment with {number_of_clients} clients")
@@ -246,7 +268,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
             )
             time.sleep(60)
             logging.info("Scan client logs...")
-            for client in range(START_NUMBER_OF_CLIENTS):
+            for client in range(number_of_clients):
                 client_name = f"{BASE_CONTAINER_NAME}-{client}"
                 client_log_file = os.path.join(log_folder, client_name, "client.log")
                 follow_file(client_log_file, "ChannelConnectivity.READY")
@@ -256,297 +278,189 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
 
             # Check for server logs
             logging.info("Scan server logs...")
+            server_container_name = f"{BASE_CONTAINER_NAME}-server-0"
             server_log_file = os.path.join(
-                log_folder, f"{BASE_CONTAINER_NAME}-server-0", "server.log"
+                log_folder, server_container_name, "server.log"
             )
             # Watch server logs and continue when server is finished
-            follow_file(server_log_file, "FL finished", "Killed")
-            logging.info("Server collected all data from the clients")
-            # Save the server logs
-            server_log_file = open(server_log_file)
-            # Wait till 'loss' is inside the file and experiment is finished
-            file_content = server_log_file.readlines()
-            for line in file_content:
-                if "FL finished" in line:
-                    time_from_flwr = line.split(" ")[-1]
-                elif "Flower server running " in line:
-                    start_time = line.split(" - ")[0]
-                elif "losses_distributed" in line:
-                    losses = line.split(" - ")[-1]
-                elif "metrics_centralized" in line:
-                    end_time = line.split(" - ")[0]
-
-            client_participations = []
-            for line in file_content:
-                if any(
-                    round_type in line for round_type in ["fit_round", "evaluate_round"]
-                ):
-                    ints = [int(clients) for clients in re.findall(r"\d+", line)]
-                    if "strategy" in line:
-                        logging.info(f"Strategy line: {line}")
-                        logging.info(f"Ints {str(ints)}")
-                        client_participations.append(f"{ints[-2]}/{ints[-1]}")
-                    logging.info(f"Received line: {line}")
-                    logging.info(f"Ints {str(ints)}")
-                    client_participations.append(f"{ints[-1]}/{ints[-2]}")
-
-            total_time_needed = datetime.strptime(
-                end_time, TIME_LOGGING_FORMAT
-            ) - datetime.strptime(start_time, TIME_LOGGING_FORMAT)
-            # Log experiment parameters
-            logging.info(
-                f"Experiment {experiment_name} finished with the following parameters: \n"
-                f"start_time: {start_time}, \n"
-                f"end_time: {end_time}, \n"
-                f"total_time_needed: {total_time_needed}, \n"
-                f"time_from_flwr {time_from_flwr}, \n"
-                f"losses: {losses}."
-            )
-            new_row = {
-                **{
-                    "clients_count": number_of_clients,
-                    "outtakes_factor": error_rate_factor,
-                    "fraction_factor": fraction_factor,
-                    # # TODO: Check connected clients
-                    # "connected_clients": "TBD",
-                    "execution_time_calc": str(total_time_needed),
-                    "execution_time_flwr": float(time_from_flwr),
-                    "start_time": start_time,
-                    "end_time": end_time,
-                },
-                **{
-                    client_participation_header: client_participation
-                    for client_participation_header, client_participation in zip(
-                        client_participation_headers, client_participations
-                    )
-                },
-                **{
-                    f"distributed_loss_round_no_{round_no}": distributed_loss
-                    for round_no, distributed_loss in [
-                        i.replace(")", "").split(", ")
-                        for i in re.findall(r"\d\, .*?\)", losses)
-                    ]
-                },
-            }
-            logging.info("General info to append for experiment:\n" f"{new_row}")
-            general_analytical_log_dataframe = general_analytical_log_dataframe.append(
-                new_row, ignore_index=True
-            )
-
-            # Log experiment parameters for each client
-            for client in range(number_of_clients):
-                client_name = f"{BASE_CONTAINER_NAME}-{client}"
-                client_log_file = os.path.join(log_folder, client_name, "client.log")
-                client_log_file = open(client_log_file)
-                file_content = client_log_file.readlines()
-                # LEARNING_STEP = True
-                # round_no = 0
-                # epoch_step = 0
-                individual_analytical_dataframe = (
-                    individual_analytical_dataframe.append(
-                        {"client_no": client}, ignore_index=True
-                    )
-                )
-                logging.info(
-                    "individual_analytical_dataframe:\n"
-                    f"{individual_analytical_dataframe}"
-                )
-                finished_learning_lines = []
+            try:
+                follow_container(server_container_name, "FL finished", "Killed")
+                logging.info("Server collected all data from the clients")
+                # Save the server logs
+                server_log_file = open(server_log_file)
+                # Wait till 'loss' is inside the file and experiment is finished
+                file_content = server_log_file.readlines()
                 for line in file_content:
-                    if "step" in line:
-                        finished_learning_lines.append(line)
-                assert len(finished_learning_lines) == (
-                    NUMBER_OF_LEARNING_ROUNDS * (EPOCHS + 1)  # +1 for Test round
+                    if "FL finished" in line:
+                        time_from_flwr = line.split(" ")[-1]
+                    elif "Flower server running " in line:
+                        start_time = line.split(" - ")[0]
+                    elif "losses_distributed" in line:
+                        losses = line.split(" - ")[-1]
+                    elif "metrics_centralized" in line:
+                        end_time = line.split(" - ")[0]
+
+                client_participations = []
+                for line in file_content:
+                    if any(
+                        round_type in line
+                        for round_type in ["fit_round", "evaluate_round"]
+                    ):
+                        ints = [int(clients) for clients in re.findall(r"\d+", line)]
+                        if "strategy" in line:
+                            logging.info(f"Strategy line: {line}")
+                            logging.info(f"Ints {str(ints)}")
+                            client_participations.append(f"{ints[-2]}/{ints[-1]}")
+                        logging.info(f"Received line: {line}")
+                        logging.info(f"Ints {str(ints)}")
+                        client_participations.append(f"{ints[-1]}/{ints[-2]}")
+
+                total_time_needed = datetime.strptime(
+                    end_time, TIME_LOGGING_FORMAT
+                ) - datetime.strptime(start_time, TIME_LOGGING_FORMAT)
+                # Log experiment parameters
+                logging.info(
+                    f"Experiment {experiment_name} finished with the following parameters: \n"
+                    f"start_time: {start_time}, \n"
+                    f"end_time: {end_time}, \n"
+                    f"total_time_needed: {total_time_needed}, \n"
+                    f"time_from_flwr {time_from_flwr}, \n"
+                    f"losses: {losses}."
+                )
+                new_row = {
+                    **{
+                        "clients_count": number_of_clients,
+                        "outtakes_factor": error_rate_factor,
+                        "fraction_factor": fraction_factor,
+                        "success": True,
+                        # # TODO: Check connected clients
+                        "execution_time_calc": str(total_time_needed),
+                        "execution_time_flwr": float(time_from_flwr),
+                        "start_time": start_time,
+                        "end_time": end_time,
+                    },
+                    **{
+                        client_participation_header: client_participation
+                        for client_participation_header, client_participation in zip(
+                            client_participation_headers, client_participations
+                        )
+                    },
+                    **{
+                        f"distributed_loss_round_no_{round_no}": distributed_loss
+                        for round_no, distributed_loss in [
+                            i.replace(")", "").split(", ")
+                            for i in re.findall(r"\d\, .*?\)", losses)
+                        ]
+                    },
+                }
+                logging.info("General info to append for experiment:\n" f"{new_row}")
+                general_analytical_log_dataframe = (
+                    general_analytical_log_dataframe.append(new_row, ignore_index=True)
                 )
 
-                [logging.info(f"{i}\n") for i in finished_learning_lines]
-                round_no = 1
-                epoch_step = 1
-                for line in finished_learning_lines:
-                    if round_no < NUMBER_OF_LEARNING_ROUNDS + 1:
-                        if epoch_step < EPOCHS + 1:
+                # Log experiment parameters for each client
+                for client in range(number_of_clients):
+                    client_name = f"{BASE_CONTAINER_NAME}-{client}"
+                    client_log_file = os.path.join(
+                        log_folder, client_name, "client.log"
+                    )
+                    client_log_file = open(client_log_file)
+                    file_content = client_log_file.readlines()
+                    individual_analytical_dataframe = (
+                        individual_analytical_dataframe.append(
+                            {"client_no": client}, ignore_index=True
+                        )
+                    )
+                    logging.info(
+                        "individual_analytical_dataframe:\n"
+                        f"{individual_analytical_dataframe}"
+                    )
+
+                    learning_data_lines = [
+                        extract_logging_parameter_from_client_line(line)
+                        for line in file_content
+                        if "step" in line
+                    ]
+
+                    learning_data_dict = {}
+                    for learning_data_line in learning_data_lines:
+                        # key = my_dict.get(values["size"])
+                        if learning_data_line["size"] not in learning_data_dict:
+                            learning_data_dict[learning_data_line["size"]] = [
+                                learning_data_line
+                            ]
+                        else:
+                            learning_data_dict[
+                                learning_data_line["size"]
+                            ] = learning_data_dict[learning_data_line["size"]] + [
+                                learning_data_line
+                            ]
+                    train_values = learning_data_dict[max(learning_data_dict.keys())]
+                    individual_analytical_dataframe.loc[
+                        individual_analytical_dataframe["client_no"] == client,
+                        "training_size",
+                    ] = max(learning_data_dict.keys())
+                    test_values = learning_data_dict[min(learning_data_dict.keys())]
+                    individual_analytical_dataframe.loc[
+                        individual_analytical_dataframe["client_no"] == client,
+                        "test_size",
+                    ] = min(learning_data_dict.keys())
+
+                    round_no = 1
+                    epoch_step = 1
+                    for train_value in train_values:
+                        if epoch_step == EPOCHS:
                             logging.info(
                                 f"Client {client} has finished the learning step epoch no {epoch_step} in round no "
                                 f"{round_no} with the following parameters:\n"
-                                f"{line}"
+                                f"{train_values}"
                             )
-                            # Get relevant values from line
-                            (
-                                training_size,
-                                training_loss,
-                                training_acc,
-                            ) = extract_logging_parameter_from_client_line(line)
-                            # Append values on correct place in the dataframe
-                            individual_analytical_dataframe.loc[
-                                individual_analytical_dataframe["client_no"] == client,
-                                "training_size",
-                            ] = training_size
                             individual_analytical_dataframe.loc[
                                 individual_analytical_dataframe["client_no"] == client,
                                 f"round_{round_no}_epoch_{epoch_step}_loss",
-                            ] = training_loss
+                            ] = train_value["loss"]
                             individual_analytical_dataframe.loc[
                                 individual_analytical_dataframe["client_no"] == client,
                                 f"round_{round_no}_epoch_{epoch_step}_acc",
-                            ] = training_acc
+                            ] = train_value["acc"]
+                            if epoch_step == EPOCHS:
+                                epoch_step = 1
+                                round_no += 1
+                            else:
+                                epoch_step += 1
 
-                            # Increase epoch step
-                            epoch_step += 1
-                        else:
-                            logging.info(
-                                f"Client {client} has finished a test step in round no {round_no} with the following "
-                                f"parameters:\n"
-                                f"{line}"
-                            )
-                            # Get relevant values from line
-                            (
-                                test_size,
-                                test_loss,
-                                test_acc,
-                            ) = extract_logging_parameter_from_client_line(line)
-                            # Append values on correct place in the dataframe
-                            individual_analytical_dataframe.loc[
-                                individual_analytical_dataframe["client_no"] == client,
-                                "test_size",
-                            ] = test_size
-                            individual_analytical_dataframe.loc[
-                                individual_analytical_dataframe["client_no"] == client,
-                                f"round_{round_no}_test_loss",
-                            ] = test_loss
-                            individual_analytical_dataframe.loc[
-                                individual_analytical_dataframe["client_no"] == client,
-                                f"round_{round_no}_test_acc",
-                            ] = test_acc
+                    for round_no, test_value in enumerate(test_values):
+                        logging.info(
+                            f"Client {client} has finished the test step in round no "
+                            f"{round_no+1} with the following parameters:\n"
+                            f"{test_values}"
+                        )
+                        individual_analytical_dataframe.loc[
+                            individual_analytical_dataframe["client_no"] == client,
+                            f"round_{round_no+1}_test_loss",
+                        ] = test_value["loss"]
+                        individual_analytical_dataframe.loc[
+                            individual_analytical_dataframe["client_no"] == client,
+                            f"round_{round_no+1}_test_acc",
+                        ] = test_value["loss"]
 
-                            # Reset epoch step and increase round no
-                            epoch_step = 1
-                            round_no += 1
-
-                # [line if "step" in line for line in file_content]
-                # for line in file_content:
-                #     if "step" in line:
-                #         for round_no in len(1, NUMBER_OF_LEARNING_ROUNDS + 1):
-                #             for epoch in len(1, EPOCHS):
-                #                 # Print train data
-                #                 logging.info(
-                #                     f"Client {client} has finished the learning step epoch no {epoch_step} in round no "
-                #                     f"{round_no} with the following parameters:\n"
-                #                     f"{line}"
-                #                 )
-                #                 training_size = line.split("/")[0]
-                #                 acc = line.split(" - ")[-1].split(" ")[-1]
-                #                 loss = line.split(" - ")[-2].split(" ")[-1]
-                #                 # Debug logging
-                #                 logging.info(f"training_size: {training_size}")
-                #                 logging.info(f"acc: {acc}")
-                #                 logging.info(f"loss: {loss}")
-                #                 # Append to dataframe
-                #                 individual_analytical_dataframe.loc[
-                #                     individual_analytical_dataframe["client_no"]
-                #                     == number_of_clients
-                #                 ]["training_size"] = training_size
-                #                 individual_analytical_dataframe.loc[
-                #                     individual_analytical_dataframe["client_no"]
-                #                     == number_of_clients
-                #                 ][f"round_{round_no}_epoch_{epoch_step}_loss"] = loss
-                #                 individual_analytical_dataframe.loc[
-                #                     individual_analytical_dataframe["client_no"]
-                #                     == number_of_clients
-                #                 ][f"round_{round_no}_epoch_{epoch_step}_loss"] = acc
-                #             # Print test data
-                #             logging.info(
-                #                 f"Client {client} has finished a test step in round no {round_no} with the following"
-                #                 f"parameters:\n"
-                #                 f"{line}"
-                #             )
-                #             test_size = line.split("/")[0]
-                #             acc = line.split(" - ")[-1].split(" ")[-1]
-                #             loss = line.split(" - ")[-2].split(" ")[-1]
-                #             # Debug logging
-                #             logging.info(f"training_size: {test_size}")
-                #             logging.info(f"acc: {acc}")
-                #             logging.info(f"loss: {loss}")
-                #             # Append to dataframe
-                #             individual_analytical_dataframe.loc[
-                #                 individual_analytical_dataframe["client_no"]
-                #                 == number_of_clients
-                #             ]["test_size"] = test_size
-                #             individual_analytical_dataframe.loc[
-                #                 individual_analytical_dataframe["client_no"]
-                #                 == number_of_clients
-                #             ][f"round_{round_no}_test_loss"] = loss
-                #             individual_analytical_dataframe.loc[
-                #                 individual_analytical_dataframe["client_no"]
-                #                 == number_of_clients
-                #             ][f"round_{round_no}_test_loss"] = acc
-                #
-                #         # if LEARNING_STEP:
-                #         #     round_no += 1
-                #         #     epoch_step += 1
-                #         #     if epoch_step < EPOCHS + 1:
-                #         #         logging.info(
-                #         #             f"Client {client} has finished the learning step epoch no {epoch_step} in round no "
-                #         #             f"{round_no} with the following parameters:\n"
-                #         #             f"{line}"
-                #         #         )
-                #         #         training_size = line.split("/")[0]
-                #         #         acc = line.split(" - ")[-1].split(" ")[-1]
-                #         #         loss = line.split(" - ")[-2].split(" ")[-1]
-                #         #         # Debug logging
-                #         #         logging.info(f"training_size: {training_size}")
-                #         #         logging.info(f"acc: {acc}")
-                #         #         logging.info(f"loss: {loss}")
-                #         #         # Append to dataframe
-                #         #         individual_analytical_dataframe.loc[
-                #         #             individual_analytical_dataframe["client_no"]
-                #         #             == number_of_clients
-                #         #         ]["training_size"] = training_size
-                #         #         individual_analytical_dataframe.loc[
-                #         #             individual_analytical_dataframe["client_no"]
-                #         #             == number_of_clients
-                #         #         ][f"round_{round_no}_epoch_{epoch_step}_loss"] = loss
-                #         #         individual_analytical_dataframe.loc[
-                #         #             individual_analytical_dataframe["client_no"]
-                #         #             == number_of_clients
-                #         #         ][f"round_{round_no}_epoch_{epoch_step}_loss"] = acc
-                #         #     else:
-                #         #         # Set learning step parameter to false since next step is a test step
-                #         #         LEARNING_STEP = False
-                #         #         # Set epoch step back
-                #         #         epoch_step = 0
-                #         # else:
-                #         #     logging.info(
-                #         #         f"Client {client} has finished a test step in round no {round_no} with the following"
-                #         #         f"parameters:\n"
-                #         #         f"{line}"
-                #         #     )
-                #         #     test_size = line.split("/")[0]
-                #         #     acc = line.split(" - ")[-1].split(" ")[-1]
-                #         #     loss = line.split(" - ")[-2].split(" ")[-1]
-                #         #     # Debug logging
-                #         #     logging.info(f"training_size: {test_size}")
-                #         #     logging.info(f"acc: {acc}")
-                #         #     logging.info(f"loss: {loss}")
-                #         #     # Append to dataframe
-                #         #     individual_analytical_dataframe.loc[
-                #         #         individual_analytical_dataframe["client_no"]
-                #         #         == number_of_clients
-                #         #     ]["test_size"] = test_size
-                #         #     individual_analytical_dataframe.loc[
-                #         #         individual_analytical_dataframe["client_no"]
-                #         #         == number_of_clients
-                #         #     ][f"round_{round_no}_test_loss"] = loss
-                #         #     individual_analytical_dataframe.loc[
-                #         #         individual_analytical_dataframe["client_no"]
-                #         #         == number_of_clients
-                #         #     ][f"round_{round_no}_test_loss"] = acc
-                individual_analytical_dataframe.to_csv(
-                    os.path.join(analytical_logs_dir, f"{experiment_name}.csv")
+                    individual_analytical_dataframe.to_csv(
+                        os.path.join(analytical_logs_dir, f"{experiment_name}.csv")
+                    )
+            except Exception as exception:
+                logging.info(f"Execution failed with {exception}")
+                new_row = {
+                    "clients_count": number_of_clients,
+                    "outtakes_factor": error_rate_factor,
+                    "fraction_factor": fraction_factor,
+                    "success": False,
+                }
+                general_analytical_log_dataframe = (
+                    general_analytical_log_dataframe.append(new_row, ignore_index=True)
                 )
-
-            logging.error("Execution failed")
             # Cleanup environment
             subprocess.call(DOCKEMU_CLEANUP_SCRIPT)
+
 # Save Dataframe
 general_analytical_log_dataframe.to_csv(
     os.path.join(analytical_logs_dir, "general_logs.csv")
