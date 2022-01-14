@@ -23,6 +23,7 @@ if __name__ == "__main__":
             f"0.0.0.0:{os.getenv('SERVERPORT')}",
             config={"num_rounds": int(os.getenv("NUMBER_OF_ROUNDS"))},
             strategy=strategy,
+            force_final_distributed_eval=True,
         )
     except Exception as error:
         os.error(error)

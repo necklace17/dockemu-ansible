@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 import docker
 
-
 # Set logging configuration
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
@@ -33,6 +32,7 @@ DOCKEMU_SCRIPT = "./dockemu_execution.sh"
 DOCKEMU_CLEANUP_SCRIPT = "./dockemu_cleanup.sh"
 START_NUMBER_OF_CLIENTS = 2
 END_NUMBER_OF_CLIENTS = 3
+NO_CLEANUP = False
 NUMBER_OF_EXECUTIONS = 1
 NS3_NETWORK_SCRIPT = "tap-csma-virtual-machine-client-server"
 NUMBER_OF_LEARNING_ROUNDS = 3
@@ -91,8 +91,10 @@ def follow_file(file_name, happy_break_string, bad_break_string=None):
 
 
 def generate_dataset_split_string(clients_count, dataset_entries_count):
-    """Generates a string with random integers in the number of clients, which together sum up to the number of entries
-    in the dataset."""
+    """Generates a string with random integers based on clients and data size.
+
+    Those integers in the number of clients together sum up to the
+    number of entries in the dataset."""
     # Generate random float values
     random_numbers = [np.random.random_sample() for _ in range(clients_count)]
     # Divide each value by the sum of the random numbers and multiply it with the count of database entries. Finally,
@@ -172,6 +174,7 @@ general_analytical_log_dataframe = pd.DataFrame(
         "execution_time_flwr",
         "start_time",
         "end_time",
+        "federated_loss",
     ]
     + client_participation_headers
     + [
@@ -179,7 +182,6 @@ general_analytical_log_dataframe = pd.DataFrame(
         for i in range(1, NUMBER_OF_LEARNING_ROUNDS + 1)
     ]
 )
-
 
 for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 1):
     logging.info("-" * 30)
@@ -284,7 +286,9 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
             )
             # Watch server logs and continue when server is finished
             try:
-                follow_container(server_container_name, "FL finished", "Killed")
+                follow_container(
+                    server_container_name, "app_evaluate: results", "Killed"
+                )
                 logging.info("Server collected all data from the clients")
                 # Save the server logs
                 server_log_file = open(server_log_file)
@@ -299,6 +303,12 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                         losses = line.split(" - ")[-1]
                     elif "metrics_centralized" in line:
                         end_time = line.split(" - ")[0]
+                    elif "federated loss" in line:
+                        federated_loss = line.split(" ")[-1]
+                    elif "app_evaluate: results" in line:
+                        app_evaluate_results = line.replace(
+                            "app_evaluate: results ", ""
+                        )
 
                 client_participations = []
                 for line in file_content:
@@ -325,7 +335,8 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                     f"end_time: {end_time}, \n"
                     f"total_time_needed: {total_time_needed}, \n"
                     f"time_from_flwr {time_from_flwr}, \n"
-                    f"losses: {losses}."
+                    f"losses: {losses}, \n"
+                    f"federated_loss: {federated_loss}."
                 )
                 new_row = {
                     **{
@@ -338,6 +349,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                         "execution_time_flwr": float(time_from_flwr),
                         "start_time": start_time,
                         "end_time": end_time,
+                        "federated_loss": federated_loss,
                     },
                     **{
                         client_participation_header: client_participation
@@ -353,11 +365,19 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                         ]
                     },
                 }
-                logging.info("General info to append for experiment:\n" f"{new_row}")
+                # Log genral
+                logging.debug("General info to append for experiment:\n" f"{new_row}")
                 general_analytical_log_dataframe = (
                     general_analytical_log_dataframe.append(new_row, ignore_index=True)
                 )
-
+                # Log app evaluate results
+                with open(
+                    os.path.join(
+                        analytical_logs_dir, f"{experiment_name}_app_evaluate.txt"
+                    ),
+                    "w",
+                ) as file:
+                    file.write(app_evaluate_results)
                 # Log experiment parameters for each client
                 for client in range(number_of_clients):
                     client_name = f"{BASE_CONTAINER_NAME}-{client}"
@@ -432,20 +452,22 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                     for round_no, test_value in enumerate(test_values):
                         logging.info(
                             f"Client {client} has finished the test step in round no "
-                            f"{round_no+1} with the following parameters:\n"
+                            f"{round_no + 1} with the following parameters:\n"
                             f"{test_values}"
                         )
                         individual_analytical_dataframe.loc[
                             individual_analytical_dataframe["client_no"] == client,
-                            f"round_{round_no+1}_test_loss",
+                            f"round_{round_no + 1}_test_loss",
                         ] = test_value["loss"]
                         individual_analytical_dataframe.loc[
                             individual_analytical_dataframe["client_no"] == client,
-                            f"round_{round_no+1}_test_acc",
+                            f"round_{round_no + 1}_test_acc",
                         ] = test_value["loss"]
 
                     individual_analytical_dataframe.to_csv(
-                        os.path.join(analytical_logs_dir, f"{experiment_name}.csv")
+                        os.path.join(
+                            analytical_logs_dir, f"{experiment_name}_clients.csv"
+                        )
                     )
             except Exception as exception:
                 logging.info(f"Execution failed with {exception}")
@@ -459,7 +481,8 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                     general_analytical_log_dataframe.append(new_row, ignore_index=True)
                 )
             # Cleanup environment
-            subprocess.call(DOCKEMU_CLEANUP_SCRIPT)
+            if not ((START_NUMBER_OF_CLIENTS == END_NUMBER_OF_CLIENTS) and NO_CLEANUP):
+                subprocess.call(DOCKEMU_CLEANUP_SCRIPT)
 
 # Save Dataframe
 general_analytical_log_dataframe.to_csv(
