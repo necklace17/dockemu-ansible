@@ -19,6 +19,7 @@
             env:
                  NUMBER_OF_CLIENTS: "{{ numberOfClientNodes | quote }}"
                  NUMBER_OF_ROUNDS: "{{ numberOfRounds | quote }}"
+                 FRACTION_FACTOR: "{{ fractionFactor | quote }}"
                  SEED: "{{ seed | quote }}"
        with_sequence: "start=0 count={{ numberOfServerNodes }}"
 
@@ -57,6 +58,7 @@
             env:
               NUMBER_OF_CLIENTS: "{{ numberOfClientNodes | quote }}"
               NUMBER_OF_ROUNDS: "{{ numberOfRounds | quote }}"
+              EPOCHS: "{{ epochs | quote }}"
               SEED: "{{ seed | quote }}"
        with_sequence: "start=0 count={{ numberOfClientNodes }}"
 

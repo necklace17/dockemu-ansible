@@ -38,13 +38,13 @@ NS3_NETWORK_SCRIPT = "tap-csma-virtual-machine-client-server"
 NUMBER_OF_LEARNING_ROUNDS = 3
 ERROR_RATE_FACTORS = [
     1,
-    # 5,
+    5,
     # 10
 ]
 # Set integer for reproducibility
 FRACTION_FACTORS = [
     4,
-    # 5,
+    5,
 ]
 EPOCHS = 1
 FIXED_SEED = None  # 42
@@ -167,7 +167,7 @@ client_participation_headers = [
 general_analytical_log_dataframe = pd.DataFrame(
     columns=[
         "clients_count",
-        "outtakes_factor",
+        "error_rate_factor",
         "fraction_factor",
         "success",
         "execution_time_calc",
@@ -203,7 +203,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                 f"{NS3_NETWORK_SCRIPT}_"
                 f"{number_of_clients}_"
                 f"{seed}_"
-                f"{str(error_rate_factor)}"
+                f"{str(error_rate_factor)}_"
                 f"{str(fraction_factor)}"
             )
             logging.info(f"Name of experiment {experiment_name}")
@@ -213,8 +213,7 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                 "ns3NetworkScript": NS3_NETWORK_SCRIPT,
                 "numberOfClientNodes": number_of_clients,
                 "numberOfRounds": NUMBER_OF_LEARNING_ROUNDS,
-                # TODO: Implement in script
-                "outtakeFactor": fraction_factor,
+                "fractionFactor": fraction_factor,
                 # TODO: Implement in script
                 "epochs": EPOCHS,
                 "seed": seed,
@@ -341,10 +340,9 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                 new_row = {
                     **{
                         "clients_count": number_of_clients,
-                        "outtakes_factor": error_rate_factor,
+                        "error_rate_factor": error_rate_factor,
                         "fraction_factor": fraction_factor,
                         "success": True,
-                        # # TODO: Check connected clients
                         "execution_time_calc": str(total_time_needed),
                         "execution_time_flwr": float(time_from_flwr),
                         "start_time": start_time,
@@ -469,11 +467,15 @@ for number_of_clients in range(START_NUMBER_OF_CLIENTS, END_NUMBER_OF_CLIENTS + 
                             analytical_logs_dir, f"{experiment_name}_clients.csv"
                         )
                     )
+                    # intermediate save general dataframe
+                    general_analytical_log_dataframe.to_csv(
+                        os.path.join(analytical_logs_dir, "general_logs.csv")
+                    )
             except Exception as exception:
                 logging.info(f"Execution failed with {exception}")
                 new_row = {
                     "clients_count": number_of_clients,
-                    "outtakes_factor": error_rate_factor,
+                    "error_rate_factor": error_rate_factor,
                     "fraction_factor": fraction_factor,
                     "success": False,
                 }

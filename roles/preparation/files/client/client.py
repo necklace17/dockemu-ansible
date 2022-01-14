@@ -78,7 +78,7 @@ if __name__ == "__main__":
             model.fit(
                 x_train,
                 y_train,
-                epochs=1,
+                epochs=int(os.getenv("EPOCHS")),
                 batch_size=32,
             )
             return model.get_weights(), len(x_train), {}

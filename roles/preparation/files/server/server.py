@@ -14,8 +14,9 @@ handler.setFormatter(formatter)
 root.addHandler(handler)
 
 # Start Flower server for three rounds of federated learning
+fraction = 0.1 * int(os.getenv("FRACTION_FACTOR"))
 
-strategy = fl.server.strategy.FedAvg(fraction_fit=0.5, fraction_eval=0.5)
+strategy = fl.server.strategy.FedAvg(fraction_fit=fraction, fraction_eval=fraction)
 
 if __name__ == "__main__":
     try:
